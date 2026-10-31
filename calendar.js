@@ -1,3 +1,4 @@
+import {element as node} from './dom.js';
 import { localDate, today, markAttendance } from './data.js';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -9,12 +10,7 @@ const readableDate = value => parseDate(value).toLocaleDateString(undefined, {
   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
 });
 
-function node(tag, text, className) {
-  const element = document.createElement(tag);
-  if (text !== undefined) element.textContent = text;
-  if (className) element.className = className;
-  return element;
-}
+
 
 function button(text, action, key) {
   const element = node('button', text);
@@ -24,16 +20,11 @@ function button(text, action, key) {
   return element;
 }
 
-function labelStyle(label) {
-  if (label === 'Can choose to bunk' || label === 'Attended') return 'status-safe';
-  if (label === 'Planned bunk') return 'status-bunk';
-  if (label === 'Must attend for 75%') return 'status-required';
-  if (['Missed', 'Needs attendance mark', 'Plan exceeds allowance'].includes(label)) return 'status-warning';
-  return 'status-neutral';
-}
+const STATUS_CLASSES = Object.freeze({available:'status-safe',attended:'status-safe',bunk:'status-bunk',required:'status-required',missed:'status-warning',unresolved:'status-warning',exceeded:'status-warning'});
+const labelStyle = status => STATUS_CLASSES[status] || 'status-neutral';
 
 /** Mount a calendar view. app.js owns subscriptions and calls render after changes. */
-export function mountCalendar(root, store, { getLabel = session => session.actual, onPreview = () => {} } = {}) {
+export function mountCalendar(root, store, { getLabel = session => session.actual, getStatus = session => session.actual, onPreview = () => {} } = {}) {
   let selectedDate = today();
   let visibleMonth = new Date(parseDate(selectedDate).getFullYear(), parseDate(selectedDate).getMonth(), 1);
   let error = '';
@@ -142,7 +133,7 @@ export function mountCalendar(root, store, { getLabel = session => session.actua
       dateButton.append(node('span', String(day), 'calendar-day-number'));
       for (const session of entries.slice(0, 2)) {
         const label = getLabel(session);
-        const entry = node('span', `${session.time} ${subjects.get(session.subjectId)?.name || 'Subject'}`, `calendar-entry ${labelStyle(label)}`);
+        const entry = node('span', `${session.time} ${subjects.get(session.subjectId)?.name || 'Subject'}`, `calendar-entry ${labelStyle(getStatus(session))}`);
         entry.append(node('span', label, 'calendar-entry-status'));
         dateButton.append(entry);
       }
@@ -173,7 +164,7 @@ export function mountCalendar(root, store, { getLabel = session => session.actua
     }
     for (const session of daySessions) {
       const label = getLabel(session);
-      const card = node('article', undefined, `session-card ${labelStyle(label)}`);
+      const card = node('article', undefined, `session-card ${labelStyle(getStatus(session))}`);
       card.dataset.sessionId = session.id;
       card.append(node('h4', `${session.time} · ${subjects.get(session.subjectId)?.name || 'Subject'}`));
       card.append(node('p', label, 'session-status'));

@@ -20,6 +20,7 @@ export function validateState(state) {
   require(state.subjects.length <= 300 && state.sessions.length <= 25000, 'This planner supports up to 300 subjects and 25,000 calendar sessions.');
   const ids=new Set();
   const endDates = new Map();
+  const subjectRecords = new Map();
   for(const s of state.subjects) {
     require(typeof s.id==='string' && s.id && !ids.has(s.id),'Duplicate or missing subject ID.'); ids.add(s.id);
     require(typeof s.name==='string' && s.name.trim().length>0 && s.name.length<=120,'Enter a subject name (up to 120 characters).');
@@ -28,7 +29,10 @@ export function validateState(state) {
     require(s.attended+s.missed<=s.total,'Past attendance exceeds the semester total.');
     require(validDate(s.endDate),'Enter a valid semester end date.');
     endDates.set(s.id, s.endDate);
+    subjectRecords.set(s.id, s);
     if (s.historyThrough !== undefined) require(validDate(s.historyThrough), 'Invalid attendance cutoff date.');
+    if (s.historyThroughTime !== undefined) require(validTime(s.historyThroughTime), 'Invalid attendance cutoff time.');
+    if (s.totalMode !== undefined) require(['fixed','inferred'].includes(s.totalMode), 'Invalid semester total mode.');
     require(Array.isArray(s.weekly),'Invalid weekly timetable.');
     const slots=new Set();
     for(const slot of s.weekly) {
@@ -45,6 +49,11 @@ export function validateState(state) {
     require(['undecided','attend','bunk'].includes(s.plan),'Invalid future plan.');
     require(typeof s.cancelled==='boolean','Invalid cancellation state.');
     require(s.cancelled || s.date <= endDates.get(s.subjectId), 'A class is after the semester end date. Extend the end date explicitly before moving or adding it.');
+    const subject = subjectRecords.get(s.subjectId);
+    if (!s.cancelled && subject.historyThrough) {
+      const cutoffTime = subject.historyThroughTime ?? '23:59';
+      require(s.date > subject.historyThrough || (s.date === subject.historyThrough && s.time > cutoffTime), 'This class is already covered by the starting attendance cutoff. Correct the history before adding it again.');
+    }
     const key=JSON.stringify([s.subjectId,s.date,s.time]);
     if(!s.cancelled) { require(!slots.has(key),'Duplicate class at the same time.'); slots.add(key); }
   }
@@ -53,6 +62,8 @@ export function validateState(state) {
 export function createSubject(input) {
   const subject={id:uid(), name:input.name?.trim(), total:input.total, attended:input.attended??0, missed:input.missed??0, endDate:input.endDate, weekly:clone(input.weekly??[])};
   if (input.historyThrough !== undefined) subject.historyThrough = input.historyThrough;
+  if (input.historyThroughTime !== undefined) subject.historyThroughTime = input.historyThroughTime;
+  if (input.totalMode !== undefined) subject.totalMode = input.totalMode;
   validateState({version:VERSION,subjects:[subject],sessions:[]}); return subject;
 }
 export function createSession(subjectId,date,time) { return {id:uid(),subjectId,date,time,actual:'unmarked',plan:'undecided',cancelled:false}; }
@@ -63,6 +74,11 @@ export function createStore(initial=emptyState(), {onListenerError = error => co
     update(mutator) {
       const draft=clone(state);
       mutator(draft);
+      for (const subject of draft.subjects) {
+        if (subject.totalMode === 'inferred') {
+          subject.total = subject.attended + subject.missed + draft.sessions.filter(session => session.subjectId === subject.id && !session.cancelled).length;
+        }
+      }
       validateState(draft);
       state=draft;
       // Rendering errors cannot roll back a commit or block other subscribers.

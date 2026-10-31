@@ -1,6 +1,6 @@
 # Can I bunk my classes?
 
-Status: Requirements agreed in chat. This file records the design for implementation.
+Status: Implemented; updated requirements approved in chat on 2026-10-31. The import update below supersedes the original manual setup workflow.
 
 ## Goal
 
@@ -15,7 +15,7 @@ The main answer is a calendar of individual sessions. Every recommendation must 
 ## Constraints
 
 - Plain HTML, CSS, and JavaScript only.
-- No backend, libraries, accounts, or external services.
+- No backend, accounts, or document-upload services. Pinned local browser libraries are approved for PDF/Excel/OCR import.
 - Save subjects, attendance, calendar changes, and plans in localStorage.
 - Restore saved data when the browser reopens the app.
 - Data belongs to the current browser and origin; this is not cross-device storage.
@@ -106,9 +106,11 @@ Best achievable final attended count under the selected bunk plan:
 
 `A + R - B`
 
-Additional bunk allowance while preserving 75%:
+Attendance slack while preserving 75%:
 
 `A + R - B - ceil(3 * N / 4)`
+
+Usable additional bunk allowance is the smaller of this slack and `R - B`; negative slack is an attendance deficit.
 
 A negative result is an attendance deficit under the plan, not a negative number of classes the user can bunk. Display the deficit explicitly.
 
@@ -160,3 +162,12 @@ For 40 sessions, with 20 attended, 11 missed, and 9 remaining, the highest possi
 ## Deliverable
 
 Implement as static files: `index.html`, `styles.css`, and `app.js`. This specification does not implement the app.
+
+
+## Approved timetable import update
+
+Drop PDF (including scans), Excel XLSX/XLS, or printed-text images. All file reading and English OCR happens locally using vendored PDF.js, SheetJS, and Tesseract.js; no backend or API key. Review/correct every detected subject/day/time before confirming. Preserve the explicit original rules and manual calendar attendance controls.
+
+The user supplies attended and held counts per subject, one semester end date, and a date/time cutoff. Derive missed = held - attended. Generate only sessions after that cutoff (including classes later today); estimate total = held + generated sessions. Imported subjects use inferred totals that follow calendar additions/cancellations. Postponements preserve IDs and plans. Do not store source files or extraction text. Generic OCR/table parsing cannot guarantee accuracy for every layout; display warnings and permit correction instead of silently guessing.
+
+Calculations are visible per subject, with integer thresholds, conditional final projections, capped allowances, and recovery estimates. Reject classes after semester end and duplicate history before the cutoff. Preserve setup drafts across refreshes. Protect saved records against stale-tab writes and rendering failures. Retain regression tests for these behaviors.

@@ -1,3 +1,4 @@
+import {element} from './dom.js';
 import { today } from './data.js';
 import { analyze, previewBunk, formatPercent } from './attendance.js';
 
@@ -5,12 +6,7 @@ const plural = (count, one, many = `${one}s`) => `${count} ${count === 1 ? one :
 const sessionOrder = (a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`);
 const upcoming = session => !session.cancelled && session.actual === 'unmarked' && session.date >= today();
 
-function element(tag, text, className) {
-  const node = document.createElement(tag);
-  if (text !== undefined) node.textContent = text;
-  if (className) node.className = className;
-  return node;
-}
+
 
 function button(text, action, disabled = false) {
   const node = element('button', text);

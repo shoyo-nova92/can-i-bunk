@@ -1,20 +1,22 @@
+import {element} from './dom.js';
 import {createSubject, createSession, today, localDate, validDate} from './data.js';
 import {analyze} from './attendance.js';
 
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function element(tag, text, className) {
-  const node = document.createElement(tag);
-  if (text !== undefined) node.textContent = text;
-  if (className) node.className = className;
-  return node;
-}
+
 
 function button(text, action, className) {
   const node = element('button', text, className);
   node.type = 'button';
   if (action) node.addEventListener('click', action);
   return node;
+}
+
+function commitForm(form, action) {
+  form.dataset.dirty = 'false';
+  try { action(); }
+  catch (error) { form.dataset.dirty = 'true'; throw error; }
 }
 
 function field(parent, text, type, value = '', attributes = {}) {
@@ -99,23 +101,28 @@ export function mountSetup(root, store) {
       label.append(select);
       row.append(label);
       const time = field(row, 'Class time', 'time', slot.time, {required: true});
-      row.append(button('Remove weekly meeting', () => row.remove(), 'quiet'));
+      row.append(button('Remove weekly meeting', () => { row.remove(); parent.dataset.dirty = 'true'; }, 'quiet'));
       row.getSlot = () => ({day: Number(select.value), time: time.value});
       rows.append(row);
     }
     initial.forEach(addRow);
-    group.append(button('Add weekly meeting', () => addRow(), 'secondary'));
+    group.append(button('Add weekly meeting', () => { addRow(); parent.dataset.dirty = 'true'; }, 'secondary'));
     parent.append(group);
     return () => [...rows.children].map(row => row.getSlot());
   }
 
   function subjectForm(parent, subject = null) {
     const form = element('form', undefined, 'setup-form');
+    form.dataset.formKey = subject ? `subject-${subject.id}` : 'new-subject';
     const fields = element('div', undefined, 'form-grid');
     const name = field(fields, 'Subject name', 'text', subject?.name || '', {required: true, maxLength: 120});
     const total = field(fields, 'Planned semester sessions', 'number', subject?.total ?? '', {required: true, min: '1', step: '1'});
+    if (subject?.totalMode === 'inferred') {
+      total.readOnly = true;
+      total.title = 'Estimated from starting held counts plus active calendar classes; updates when classes change.';
+    }
     const attended = field(fields, 'Already attended', 'number', subject?.attended ?? 0, {required: true, min: '0', step: '1'});
-    const missed = field(fields, 'Already missed', 'number', subject?.missed ?? 0, {required: true, min: '0', step: '1'});
+    const held = field(fields, 'Sessions held before calendar', 'number', subject ? subject.attended + subject.missed : 0, {required: true, min: '0', step: '1'});
     const endDate = field(fields, 'Semester end date', 'date', subject?.endDate || '', {required: true});
     form.append(fields);
     form.append(element('p', 'Starting counts cover classes before your calendar entries. If a class earlier today is already counted, remove that duplicate calendar entry.', 'muted'));
@@ -131,18 +138,20 @@ export function mountSetup(root, store) {
     form.addEventListener('submit', event => {
       event.preventDefault();
       act(() => {
-        const input = {name: name.value, total: Number(total.value), attended: Number(attended.value), missed: Number(missed.value), endDate: endDate.value, weekly: getWeekly()};
+        const input = {name: name.value, total: Number(total.value), attended: Number(attended.value), missed: Number(held.value) - Number(attended.value), endDate: endDate.value, weekly: getWeekly()};
+        if (subject?.historyThrough) input.historyThrough = subject.historyThrough;
+        if (subject?.historyThroughTime) input.historyThroughTime = subject.historyThroughTime;
         const validated = createSubject(input);
         if (subject) {
-          store.update(state => {
+          commitForm(form, () => store.update(state => {
             const index = state.subjects.findIndex(item => item.id === subject.id);
             if (index < 0) throw new Error('This subject no longer exists.');
-            state.subjects[index] = {...validated, id: subject.id};
-          });
+            state.subjects[index] = {...state.subjects[index], ...validated, id: subject.id};
+          }));
         } else {
           const sessions = generateSessions(validated);
           openKeys.add(`subject-${validated.id}`);
-          store.update(state => { state.subjects.push(validated); state.sessions.push(...sessions); });
+          commitForm(form, () => store.update(state => { state.subjects.push(validated); state.sessions.push(...sessions); }));
           form.reset();
         }
       }, subject ? 'Subject details saved. Existing calendar sessions were preserved.' : 'Subject added. Check the session count before relying on a bunk forecast.');
@@ -155,6 +164,7 @@ export function mountSetup(root, store) {
     const details = disclosure(title, `session-${session.id}`, openKeys);
     details.className = 'session-editor';
     const form = element('form', undefined, 'session-edit-form');
+    form.dataset.formKey = `session-${session.id}`;
     const fields = element('div', undefined, 'form-grid');
     const date = field(fields, 'Class date', 'date', session.date, {required: true});
     const time = field(fields, 'Class time', 'time', session.time, {required: true});
@@ -185,13 +195,13 @@ export function mountSetup(root, store) {
     form.append(actions);
     form.addEventListener('submit', event => {
       event.preventDefault();
-      act(() => store.update(state => {
+      act(() => commitForm(form, () => store.update(state => {
         const item = state.sessions.find(candidate => candidate.id === session.id);
         if (!item) throw new Error('This class no longer exists.');
         if (item.actual !== 'unmarked' && date.value > today()) throw new Error('Undo attendance before moving a recorded class into the future.');
         item.date = date.value;
         item.time = time.value;
-      }), 'Class moved. Its attendance and plan were preserved.');
+      })), 'Class moved. Its attendance and plan were preserved.');
     });
     details.append(form);
     parent.append(details);
@@ -200,6 +210,7 @@ export function mountSetup(root, store) {
   function scheduleEditor(parent, subject, sessions) {
     const details = disclosure(`Manage ${sessions.length} calendar sessions`, `schedule-${subject.id}`, openKeys);
     const form = element('form', undefined, 'add-session-form');
+    form.dataset.formKey = `add-session-${subject.id}`;
     form.append(element('h4', 'Add an individual class'));
     const fields = element('div', undefined, 'form-grid');
     const date = field(fields, 'New class date', 'date', today(), {required: true});
@@ -210,7 +221,7 @@ export function mountSetup(root, store) {
     form.append(add);
     form.addEventListener('submit', event => {
       event.preventDefault();
-      act(() => store.update(state => state.sessions.push(createSession(subject.id, date.value, time.value))), 'Class added. Check that the semester total matches the calendar.');
+      act(() => commitForm(form, () => store.update(state => state.sessions.push(createSession(subject.id, date.value, time.value)))), 'Class added. Check that the semester total matches the calendar.');
     });
     details.append(form);
     if (!sessions.length && subject.weekly.length) {
@@ -228,14 +239,18 @@ export function mountSetup(root, store) {
   }
 
   function render() {
+    const active = root.contains(document.activeElement) ? document.activeElement : null;
+    const drafts = new Map([...root.querySelectorAll('form[data-form-key]')]
+      .filter(form => form.dataset.dirty === 'true' || (form.dataset.dirty !== 'false' && form.contains(active)))
+      .map(form => [form.dataset.formKey, form]));
     for (const details of root.querySelectorAll('details[data-setup-key]')) {
       if (details.open) openKeys.add(details.dataset.setupKey);
       else openKeys.delete(details.dataset.setupKey);
     }
     const state = store.get();
     root.replaceChildren();
-    root.append(element('h2', 'Subjects & timetable'));
-    root.append(element('p', 'Start with the classes you have already attended and missed. Then check the remaining dates.', 'muted'));
+    root.append(element('h2', 'Advanced subject & schedule corrections'));
+    root.append(element('p', 'Import your timetable above for automatic subject setup. Use these controls to correct totals, history, or individual dates.', 'muted'));
     root.append(messageBox);
     report(message, messageIsError);
     const add = disclosure('Add a subject', 'new-subject', openKeys);
@@ -256,6 +271,15 @@ export function mountSetup(root, store) {
       scheduleEditor(details, subject, sessions);
       root.append(details);
     });
+    for (const form of root.querySelectorAll('form[data-form-key]')) {
+      const draft = drafts.get(form.dataset.formKey);
+      if (draft) form.replaceWith(draft);
+      else {
+        form.addEventListener('input', () => { form.dataset.dirty = 'true'; });
+        form.addEventListener('change', () => { form.dataset.dirty = 'true'; });
+      }
+    }
+    if (active && root.contains(active)) active.focus({preventScroll:true});
   }
 
   render();

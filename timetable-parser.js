@@ -66,7 +66,8 @@ function headerType(value) {
 export function parseTimetable(text) {
   if (typeof text !== 'string') throw new Error('Timetable text must be a string.');
   if (text.length > MAX_TEXT) throw new Error('The timetable text is too large. Import only the relevant schedule page.');
-  const lines = text.replace(/\r\n?/g, '\n').split('\n').map(line => line.trimEnd()).filter(line => line.trim());
+  // A trailing TAB is an empty final table cell, not disposable whitespace.
+  const lines = text.replace(/\r\n?/g, '\n').split('\n').map(line => line.replace(/ +$/, '')).filter(line => line.trim());
   const rows = [], warnings = [], seen = new Set();
   let mapping = null, dayColumns = null, timeColumns = null;
   let skipped = 0, duplicates = 0;

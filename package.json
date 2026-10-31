@@ -1,1 +1,1 @@
-{"name":"can-i-bunk","private":true,"type":"module","scripts":{"test":"node --test"}}
+{"name":"can-i-bunk","private":true,"type":"module","scripts":{"test":"node --test","prepare:vendor":"node prepare-vendor.mjs"},"dependencies":{"pdfjs-dist":"6.4.299","tesseract.js":"7.0.0","xlsx":"https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"}}

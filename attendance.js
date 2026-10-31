@@ -8,7 +8,7 @@ export const STATUS_LABELS = Object.freeze({
 });
 
 export function classify(attended, total) {
-  if (!Number.isSafeInteger(total) || total <= 0 || !Number.isSafeInteger(attended) || attended < 0 || attended > total) {
+  if (!Number.isSafeInteger(total) || total <= 0 || total > 100000 || !Number.isSafeInteger(attended) || attended < 0 || attended > total) {
     throw new Error('Invalid attendance counts.');
   }
   return 4 * attended >= 3 * total ? 'safe' : 5 * attended >= 3 * total ? 'grade-drop' : 'retake';

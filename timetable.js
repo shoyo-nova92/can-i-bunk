@@ -1,13 +1,7 @@
-import {createSubject, today, validDate} from './data.js';
+import {createSubject, today, validDate, validTime} from './data.js';
+import {element as node} from './dom.js';
 import {generateSessions} from './setup.js';
 import {DAY_NAMES, parseTimetable} from './timetable-parser.js';
-
-function node(tag, text, className) {
-  const element = document.createElement(tag);
-  if (text !== undefined) element.textContent = text;
-  if (className) element.className = className;
-  return element;
-}
 
 function field(parent, labelText, type, value = '') {
   const label = node('label', undefined, 'field');
@@ -32,7 +26,6 @@ const currentTime = () => {
   const now = new Date();
   return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 };
-const validTime = value => typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 const sessionsAfter = (subject, cutoff, cutoffTime) => generateSessions(subject, cutoff)
   .filter(session => session.date > cutoff || session.time > cutoffTime);
 
@@ -60,9 +53,7 @@ export function buildTimetableImport(rows, counts, {cutoff, cutoffTime = '23:59'
     const remaining = sessionsAfter({id: 'estimate', ...subject, endDate}, cutoff, cutoffTime);
     const total = held + remaining.length;
     if (!total) throw new Error(`${subject.name} has no held or future sessions. Correct its timetable or end date.`);
-    const validated = createSubject({...subject, total, attended, missed: held - attended, endDate});
-    validated.historyThrough = cutoff;
-    validated.historyThroughTime = cutoffTime;
+    const validated = createSubject({...subject, total, attended, missed: held - attended, endDate, historyThrough:cutoff, historyThroughTime:cutoffTime, totalMode:'inferred'});
     subjects.push(validated);
     sessions.push(...remaining.map(session => ({...session, subjectId: validated.id})));
   }
@@ -117,7 +108,7 @@ export function mountTimetable(root, store) {
   endDate.required = true;
   form.append(dates);
   form.append(node('p', 'Enter the counts separately for each subject. “Held” includes attended and missed classes through the selected date and time. Earlier meetings, including a class starting exactly at that time, are covered by those counts; later classes today stay in your calendar. Choose the cutoff before a class if it is not yet included in your counts.', 'notice'));
-  form.append(node('p', 'Semester totals are estimated as held so far + all weekly meetings through the end date. Review holidays, cancellations, and postponements in the calendar before trusting bunk advice.', 'muted'));
+  form.append(node('p', 'Semester totals are estimated as held so far + all weekly meetings through the end date. Cancelling or adding a class updates this estimate; postponing preserves the session count. Review holidays and double periods before trusting bunk advice.', 'muted'));
   const countsRoot = node('div', undefined, 'timetable-counts');
   form.append(countsRoot);
   const confirmationLabel = node('label', undefined, 'timetable-confirmation');

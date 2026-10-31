@@ -67,6 +67,7 @@ export function createPersistence(storage) {
   let expectedRaw = loaded.raw ?? null;
   let paused = Boolean(loaded.error);
   let reason = loaded.error;
+  let queue = Promise.resolve();
   function save(state) {
     if (paused) return {ok:false, conflict:true, error:reason || 'Saving is paused. Reload before editing.'};
     const result = saveState(state, storage, {expectedRaw});
@@ -78,6 +79,15 @@ export function createPersistence(storage) {
     loaded,
     get paused() { return paused; },
     save,
+    saveAsync(state, locks = globalThis.navigator?.locks) {
+      // Web Locks serialize the compare/write pair across tabs on this origin.
+      // The queue also preserves order for rapid edits in this tab.
+      const snapshot = structuredClone(state);
+      queue = queue.catch(() => {}).then(() => locks?.request
+        ? locks.request('can-i-bunk.saved-state', () => save(snapshot))
+        : save(snapshot));
+      return queue;
+    },
     pause(message = 'Another tab changed this planner. Reload before editing.') { paused = true; reason = message; },
     // Called only after the user explicitly confirms replacing unreadable data.
     replace(state) {

@@ -1,30 +1,38 @@
 # Can I bunk my classes?
 
-A browser-only semester attendance planner. Add subjects and historical attendance, build a calendar, record classes, and reserve future bunks to see which sessions become mandatory.
+A static semester attendance planner with a calendar, future bunk reservations, and explainable calculations. Import your timetable instead of typing every subject.
 
 ## Open locally
 
-From this folder, run `python -m http.server 4173 --bind 127.0.0.1`, then open [http://127.0.0.1:4173](http://127.0.0.1:4173).
+From this folder, run `python -m http.server 4173 --bind 127.0.0.1`, then open [http://127.0.0.1:4173](http://127.0.0.1:4173). Use a recent browser with JavaScript and WebAssembly enabled. JavaScript modules require HTTP; opening index.html directly is unsupported.
 
-The HTTP server only serves static files for local development. The app has no backend, libraries, account system, or network data storage. Keep the same browser and address to restore localStorage data. Opening `index.html` directly is not supported because the app uses JavaScript modules.
+The server serves static files only. There is no application backend, account, API key, document-upload service, or cross-device sync. Records are saved in localStorage for the current browser and address. English OCR runs in a local browser worker. Imported files and extracted text are not saved or uploaded; only reviewed subject/session records are stored.
 
-## Rules
+## Import workflow
 
-Semester-end attendance is calculated separately for each subject. At least 75% avoids the specified attendance penalties; 60% to below 75% incurs a grade drop; below 60% means a retake. Whole-session counts decide thresholds, not rounded displayed percentages.
+1. Drop a PDF, Excel workbook (`.xlsx` or `.xls`), or image (PNG/JPEG/WebP/BMP/GIF). CSV/TSV/text and pasted tables also work. PDF scans use OCR automatically.
+2. Compare detected subjects, weekdays, and start times against the original. Correct missing/merged rows. Abbreviations, rotated photos, handwriting, and unfamiliar table layouts can need manual corrections. Each row counts as one equally weighted session.
+3. Enter the semester end date, the date/time through which counts are complete, and **attended** plus **held so far** for each detected subject. Missed is calculated as held minus attended. Meetings after the cutoff, including later today, populate the calendar.
+4. Review and confirm. Subjects and totals are created automatically. Estimated semester total = held so far + remaining scheduled sessions. Holidays/cancellations must be corrected; inferred totals follow additions/cancellations, while postponements preserve session identity.
 
-Calendar recommendations assume you attend every remaining session that is not a selected bunk. Several candidate bunks are alternatives, not a promise that you can miss them all. Reconcile the calendar total and mark past sessions before trusting a forecast. Moving a postponed class preserves its identity and plan.
+Counts include a meeting starting exactly at the cutoff time. Choose a cutoff before its start if the meeting has not yet been included. The importer adds new subjects and refuses duplicate names rather than overwriting history. Advanced corrections remain available below the calendar.
 
-## Tests
+Limits: 15 MB per file, 20 PDF pages, 10 workbook sheets, 500 rows/100 columns per sheet, and 40 megapixel source images. English printed text is supported; convert HEIC/TIFF to PNG/JPEG. Every import requires review. The app does not infer your university's subject-code meanings, session weights, holidays, or semester end date.
 
-With Node.js installed, run `npm test`. Tests use Node's built-in runner; no package installation is needed. Node is only a development tool, not an app runtime requirement.
+## Attendance and calculations
 
-## Project map
+Semester-end thresholds per subject: at least 75% is safe; 60% to below 75% incurs a grade drop; below 60% means a retake. Integer session counts decide thresholds, not rounded display percentages.
 
-- `plan.md`: agreed behavior and calculation examples.
-- `spec.md`: task boundaries and dependencies.
-- `interfaces.md`: state model and module contracts.
-- `data.js`, `attendance.js`: validated state and attendance math.
-- `storage.js`, `setup.js`, `calendar.js`, `planner.js`: independent feature modules.
-- `app.js`, `index.html`, `styles.css`: integration and presentation.
+Open **Show calculations** on a subject for current attendance, derived missed sessions, whole-session 75%/60% requirements, final projections, attendance slack, usable bunk allowance, and recovery estimates. The usable allowance is capped by the number of remaining unreserved classes. Candidate bunks are alternatives, not jointly safe absences. Forecasts assume attendance at every remaining class outside the selected bunk plan.
 
-No cross-device synchronization, timetable imports, notifications, or automatic attendance tracking are included.
+## Reliability
+
+Classes beyond semester end are rejected. Unmarked past sessions and unreconciled fixed totals block trusted advice. Editing a plan preserves unfinished setup drafts. Corrupt saved records are preserved until explicit replacement. Stale tabs pause saving, with Web Locks serializing saves across supported browsers; browsers without Web Locks still compare saved snapshots before writing. A view failure cannot block the persistence subscriber.
+
+## Development
+
+Run `npm test` with Node.js: tests use its built-in runner. `node_modules` is unnecessary to serve the app because pinned browser assets are checked into `vendor/`. To recreate them, run `npm ci --ignore-scripts --omit=optional`, then `npm run prepare:vendor` (requires an internet connection for the pinned English OCR model).
+
+Libraries: [PDF.js](https://mozilla.github.io/pdf.js/), [SheetJS CE](https://docs.sheetjs.com/docs/getting-started/installation/standalone/), and [Tesseract.js](https://github.com/naptha/tesseract.js). Versions are pinned in package-lock.json and licenses accompany vendor assets. Browser libraries were explicitly approved after the original no-library plan.
+
+Project details: plan.md (requirements), spec.md (original task split), interfaces.md (module contracts), UPDATE_REPORT.md (review fixes and import verification).
