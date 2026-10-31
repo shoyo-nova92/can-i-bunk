@@ -52,7 +52,9 @@ export function analyze(state, subjectId, asOf = today()) {
   const reliable = !mismatch && unresolved.length === 0 && outsideSemester.length === 0;
   const best = attended + remaining - plannedBunks;
   const maximum = attended + remaining;
-  const allowance = best - required75;
+  const attendanceSlack = best - required75;
+  // A surplus cannot buy more absences than the sessions still available.
+  const allowance = Math.min(remaining - plannedBunks, attendanceSlack);
   const statuses = Object.create(null);
   const labels = Object.create(null);
   for (const session of allSessions) {
@@ -63,7 +65,7 @@ export function analyze(state, subjectId, asOf = today()) {
     subjectId, N: total, A: attended, M: missed, R: remaining, B: plannedBunks,
     required75, required60, mismatch, unresolved, outsideSemester, reliable,
     currentPercent: attended + missed ? 100 * attended / (attended + missed) : null,
-    best, maximum, allowance, deficit: Math.max(0, -allowance),
+    best, maximum, attendanceSlack, allowance, deficit: Math.max(0, -attendanceSlack),
     bestPercent: 100 * best / total, maximumPercent: 100 * maximum / total,
     canRecover75: maximum >= required75, canRecover60: maximum >= required60,
     outcome: reliable ? classify(best, total) : null, statuses, labels
