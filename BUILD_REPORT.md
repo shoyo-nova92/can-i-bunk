@@ -1,5 +1,7 @@
 # Build report
 
+Historical report for the original build. See `UPDATE_REPORT.md` for the subsequent approved import capabilities and review fixes.
+
 The base was implemented and tested first. Every later task used a separate agent, Git branch, and worktree, with exclusive ownership of its files. Tasks 2–5 were independent after Task 1. With three agent slots available, Task 5 started when Task 2 finished. Task 6 waited until all four dependency branches were merged.
 
 ## Task summaries

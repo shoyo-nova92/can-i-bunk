@@ -1,17 +1,12 @@
+import {element} from './dom.js';
 import { today } from './data.js';
-import { analyze, previewBunk } from './attendance.js';
+import { analyze, previewBunk, formatPercent } from './attendance.js';
 
-const percent = value => `${value.toFixed(1)}%`;
 const plural = (count, one, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 const sessionOrder = (a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`);
 const upcoming = session => !session.cancelled && session.actual === 'unmarked' && session.date >= today();
 
-function element(tag, text, className) {
-  const node = document.createElement(tag);
-  if (text !== undefined) node.textContent = text;
-  if (className) node.className = className;
-  return node;
-}
+
 
 function button(text, action, disabled = false) {
   const node = element('button', text);
@@ -36,6 +31,66 @@ function allowanceText(result) {
   return `${plural(result.allowance, 'additional bunk')} available`;
 }
 
+/** Numbers for the explanation view; integer session counts determine safety. */
+export function calculationRows(result) {
+  const held = result.A + result.M;
+  const rows = [
+    ['Classes held so far', `${result.A} attended + ${result.M} missed = ${held} held`],
+    ['Current attendance', held === 0
+      ? 'No classes held yet; there is no current attendance percentage.'
+      : `${result.A} ÷ ${held} × 100 = ${formatPercent(result.currentPercent)}`],
+    ['Planned semester total', `${result.N} classes`],
+    ['Unmarked calendar classes', `${result.R} classes`],
+    ['Reserved future bunks', `${result.B} classes`],
+    ['75% requirement', `Round up (3 × ${result.N} ÷ 4) = ${result.required75} attended classes`],
+    ['60% requirement', `Round up (3 × ${result.N} ÷ 5) = ${result.required60} attended classes`]
+  ];
+
+  if (!result.reliable) {
+    rows.push(['Forecast status', 'Resolve the calendar warnings before using the final projection or bunk allowance.']);
+    return rows;
+  }
+
+  const finalAttendancesNeeded = Math.max(0, result.required75 - result.A);
+  const plannedAttendances = result.R - result.B;
+  const attendanceSlack = result.attendanceSlack;
+  rows.push(
+    ['Further attendances for the final 75% target', result.A >= result.required75
+      ? `${result.A} already attended meets the requirement of ${result.required75}; 0 still needed.`
+      : `${result.required75} required − ${result.A} attended = ${finalAttendancesNeeded} still needed`],
+    ['Best final attendance under your plan', `${result.A} + ${result.R} − ${result.B} = ${result.best} attended; ${result.best} ÷ ${result.N} × 100 = ${formatPercent(result.bestPercent)}`],
+    ['Attendance slack', `${result.A} attended + ${result.R} remaining − ${result.B} reserved bunks − ${result.required75} required = ${attendanceSlack}`],
+    ['Additional bunk allowance', attendanceSlack < 0
+      ? `0 usable additional bunks; the plan has an attendance deficit of ${result.deficit}.`
+      : `Smaller of ${plannedAttendances} remaining unreserved classes and ${attendanceSlack} attendance slack = ${result.allowance} additional bunks`]
+  );
+
+  if (result.deficit > 0) {
+    rows.push(['Attendance deficit', result.canRecover75
+      ? `The plan is ${plural(result.deficit, 'attendance')} short. Clear at least ${plural(result.deficit, 'reserved bunk')} and attend those classes.`
+      : `Even attending all ${result.R} remaining classes cannot meet the final 75% target.`]);
+  } else {
+    rows.push(['Allowance meaning', plannedAttendances === 0
+      ? 'No unreserved future classes remain to bunk.' : result.allowance === 0
+      ? `All ${plannedAttendances} remaining classes outside your reserved bunks must be attended.`
+      : `Choose up to ${plural(result.allowance, 'additional absence')} in total, not every candidate shown in the calendar.`]);
+  }
+
+  if (held === 0) {
+    rows.push(['Reaching a current 75%', 'No classes have been held. Attending your first class would make current attendance 100%.']);
+  } else {
+    // (attended + x) / (held + x) >= 3/4 simplifies to x >= 3*held - 4*attended.
+    const consecutiveNeeded = Math.max(0, 3 * held - 4 * result.A);
+    rows.push(['Reaching a current 75%', consecutiveNeeded === 0
+      ? 'Your current attendance is already at least 75%. This does not reserve any future bunk allowance.'
+      : `${plural(consecutiveNeeded, 'consecutive attended class', 'consecutive attended classes')} without another absence would reach a current 75%. ${consecutiveNeeded <= plannedAttendances
+        ? 'This assumes no reserved bunk interrupts that run; another absence changes this estimate.'
+        : `Only ${plannedAttendances} unmarked classes outside your reserved bunks remain; this recovery is not possible under the current plan.`}`]);
+  }
+  rows.push(['Assumption', 'Every remaining class outside your reserved bunks is attended. Final penalties are decided at semester end, separately for each subject.']);
+  return rows;
+}
+
 export function getSessionLabel(state, session) {
   if (!session) return 'Class not found';
   if (!state.subjects.some(subject => subject.id === session.subjectId)) return 'Subject not found';
@@ -47,6 +102,7 @@ export function mountPlanner(root, store) {
   let selectedSessionId = '';
   let previewId = '';
   let error = '';
+  const openCalculations = new Set();
 
   function changePlan(plan) {
     try {
@@ -57,7 +113,6 @@ export function mountPlanner(root, store) {
         if (!session || !upcoming(session)) throw new Error('Choose an upcoming unmarked class first.');
         session.plan = plan;
       });
-      render();
     } catch (reason) {
       error = reason.message || 'Could not change this plan.';
       render();
@@ -71,7 +126,7 @@ export function mountPlanner(root, store) {
     const counts = element('p', `${result.A} attended · ${result.M} missed · ${result.R} unmarked`, 'muted');
     const current = element('p', result.currentPercent === null
       ? 'Current attendance: no attendance recorded.'
-      : `Current attendance: ${percent(result.currentPercent)}`);
+      : `Current attendance: ${formatPercent(result.currentPercent)}`);
     card.append(heading, counts, current);
 
     if (!result.reliable) {
@@ -81,14 +136,17 @@ export function mountPlanner(root, store) {
       if (result.unresolved.length) {
         card.append(element('p', `Mark ${plural(result.unresolved.length, 'past class', 'past classes')} before trusting future bunk advice.`, 'notice'));
       }
+      if (result.outsideSemester?.length) {
+        card.append(element('p', `${plural(result.outsideSemester.length, 'class', 'classes')} fall after the semester end date. Move them within the semester or explicitly correct the end date before trusting a forecast.`, 'notice'));
+      }
       card.append(element('p', 'Final forecast and bunk allowance are unavailable until these issues are resolved.', 'muted'));
     } else {
       card.append(element('p', allowanceText(result), result.allowance < 0 ? 'error planner-allowance' : 'planner-allowance'));
-      card.append(element('p', `Best final attendance under your plan: ${result.best}/${result.N} (${percent(result.bestPercent)}).`));
+      card.append(element('p', `Best final attendance under your plan: ${result.best}/${result.N} (${formatPercent(result.bestPercent)}).`));
       card.append(element('p', `${plural(result.B, 'planned bunk')}. Need ${result.required75} attendances for 75%; ${result.required60} to avoid a retake.`, 'muted'));
 
       if (!result.canRecover75) {
-        card.append(element('p', `75% is unreachable even if you attend every remaining class. The best possible result is ${result.maximum}/${result.N} (${percent(result.maximumPercent)}).`, 'error'));
+        card.append(element('p', `75% is unreachable even if you attend every remaining class. The best possible result is ${result.maximum}/${result.N} (${formatPercent(result.maximumPercent)}).`, 'error'));
         card.append(element('p', result.canRecover60
           ? '60% is still reachable: you can avoid a retake, but the grade-drop threshold cannot be met.'
           : '60% is also unreachable. The final attendance falls in the retake zone even with perfect remaining attendance.', 'notice'));
@@ -103,6 +161,16 @@ export function mountPlanner(root, store) {
         card.append(element('p', 'Your current plan ends below 75%: grade-drop zone.', 'notice'));
       }
     }
+    const calculations = element('details', undefined, 'planner-calculations');
+    calculations.dataset.calculationSubject = subject.id;
+    calculations.open = openCalculations.has(subject.id);
+    calculations.append(element('summary', 'Show calculations'));
+    const list = element('dl', undefined, 'calculation-grid');
+    for (const [label, text] of calculationRows(result)) {
+      list.append(element('dt', label), element('dd', text));
+    }
+    calculations.append(list);
+    card.append(calculations);
     return card;
   }
 
@@ -123,14 +191,14 @@ export function mountPlanner(root, store) {
       section.append(element('p', 'This forecast is not reliable. Reconcile the schedule and mark past classes before deciding to bunk.', 'notice'));
     } else {
       section.append(element('p', `Before: ${allowanceText(result.before)}. After: ${allowanceText(result.after)}.`));
-      section.append(element('p', `Best final attendance: ${percent(result.before.bestPercent)} before → ${percent(result.after.bestPercent)} after (${result.after.best}/${result.after.N}).`));
+      section.append(element('p', `Best final attendance: ${formatPercent(result.before.bestPercent)} before → ${formatPercent(result.after.bestPercent)} after (${result.after.best}/${result.after.N}).`));
       if (session.plan === 'bunk') section.append(element('p', 'This class is already a planned bunk, so the preview uses no extra allowance.', 'muted'));
       if (result.after.deficit) {
         section.append(element('p', result.after.canRecover75
           ? `This plan cannot reach 75%. Clear ${plural(result.after.deficit, 'planned bunk')} to recover.`
           : '75% cannot be recovered, even by attending every remaining class.', 'error'));
       }
-      const newMandatory = result.mandatoryIds.filter(id => result.before.labels[id] !== 'Must attend for 75%');
+      const newMandatory = result.mandatoryIds.filter(id => result.before.statuses[id] !== 'required');
       section.append(element('p', `${plural(newMandatory.length, 'class', 'classes')} become mandatory under this preview.`));
       if (newMandatory.length) {
         const list = element('ul', undefined, 'planner-mandatory');
@@ -147,6 +215,10 @@ export function mountPlanner(root, store) {
   }
 
   function render() {
+    for (const details of root.querySelectorAll('[data-calculation-subject]')) {
+      if (details.open) openCalculations.add(details.dataset.calculationSubject);
+      else openCalculations.delete(details.dataset.calculationSubject);
+    }
     const state = store.get();
     const active = root.contains(document.activeElement) ? document.activeElement : null;
     const focusKey = active?.dataset?.plannerFocus;

@@ -1,10 +1,10 @@
 # Can I bunk? — Small implementation tasks
 
-Source: `can-i-bunk-spec.md`; no `plan.md` was found. Planning only; no app code yet.
+Original task split, now implemented. Current requirements are in `plan.md`; the approved PDF/Excel/image import and review fixes are recorded in `UPDATE_REPORT.md`.
 
 ## Scope and file boundaries
 
-Build one static, browser-only app using HTML, CSS, JavaScript, and localStorage. Include manual attendance, a monthly calendar, postponed classes, and future bunk planning. Exclude accounts, sync, backend, libraries, notifications, timetable imports, and automatic attendance. Apply semester-end rules per subject: **≥75% safe; ≥60% and <75% grade drop; <60% retake**.
+Build one static, browser-only app using HTML, CSS, JavaScript, and localStorage. Include manual attendance, a monthly calendar, postponed classes, and future bunk planning. Exclude accounts, sync, backend, notifications, and automatic attendance. A later approved update adds local PDF/Excel/image timetable imports with pinned browser libraries. Apply semester-end rules per subject: **≥75% safe; ≥60% and <75% grade drop; <60% retake**.
 
 Each task owns only the files listed below. Task 1 defines shared data shapes, public functions, and a change-notification interface in `interfaces.md`. Later tasks consume those interfaces without editing another task's files; agree any missing interface before starting dependent work. Task 6 wires the finished modules together.
 

@@ -13,21 +13,24 @@
   <a class="skip-link" href="#calendar">Skip to calendar</a>
   <header class="site-header">
     <a class="brand" href="#top" aria-label="Can I bunk home"><span class="brand-mark" aria-hidden="true">✓</span> Can I bunk?</a>
-    <nav aria-label="Main navigation"><a href="#calendar">Calendar</a><a href="#planner">Bunk planner</a><a href="#setup">Subjects</a></nav>
+    <nav aria-label="Main navigation"><a href="#timetable">Import timetable</a><a href="#calendar">Calendar</a><a href="#planner">Calculations & plans</a></nav>
   </header>
   <main id="top">
     <section class="intro" aria-labelledby="page-title">
       <div><h1 id="page-title">A day off.<br>A semester in balance.</h1><p>See what you can miss, what you need to attend, and how today's choice changes tomorrow.</p></div>
-      <div class="rule-note"><strong>75% is the line.</strong><p>Attendance is assessed per subject at semester end. Keep your calendar accurate before making plans.</p><a class="button-link" href="#setup">Add your subjects</a></div>
+      <div class="rule-note"><strong>75% is the line.</strong><p>Drop your PDF, Excel file, or timetable image. Review the classes, then enter attended and held counts.</p><a class="button-link" href="#timetable">Import your timetable</a></div>
     </section>
     <div class="save-bar"><p id="save-status" role="status" aria-live="polite">Opening your planner…</p><span>Private to this browser</span></div>
     <section id="recovery" class="recovery" aria-label="Saved data recovery" hidden><p id="recovery-message" role="alert"></p><p>Saving is paused so the original stored data stays untouched. You can continue without saving or explicitly replace it with a fresh planner.</p><button id="start-fresh" type="button">Replace saved data and start fresh</button></section>
-    <section id="welcome" class="welcome" aria-label="Get started"><div><h2>Your next class is the starting point.</h2><p>Add your subjects and past attendance below, or explore a sample with one bunk left.</p></div><button id="try-example" type="button" class="secondary">Try example data</button></section>
+    <p id="view-error" class="error" role="alert" hidden></p>
+    <section id="storage-conflict" class="recovery" aria-label="Newer saved records" hidden><p>Another tab changed your saved planner. Saving is paused here so you cannot overwrite its newer attendance.</p><button id="reload-planner" type="button">Reload newer planner</button></section>
+    <section id="welcome" class="welcome" aria-label="Get started"><div><h2>Your timetable does the setup.</h2><p>Import below and review the subjects it finds, or explore an example with one bunk left.</p></div><button id="try-example" type="button" class="secondary">Try example data</button></section>
+    <section id="timetable" class="import-section" aria-label="Import a timetable"></section>
     <div class="workspace">
       <div class="calendar-column"><div class="section-caption"><span>Your class calendar</span><span id="today-label"></span></div><div id="calendar" tabindex="-1"></div></div>
       <aside id="planner" class="planner-column" aria-label="Bunk planning"></aside>
     </div>
-    <section class="setup-section" aria-label="Manage your subjects"><div id="setup" tabindex="-1"></div></section>
+    <details class="setup-section" aria-label="Manage your subjects"><summary>Advanced corrections: subjects and individual classes</summary><div id="setup" tabindex="-1"></div></details>
     <section class="rules" aria-label="Attendance thresholds"><h2>Know the thresholds</h2><div class="rule-list"><p><strong>75% and above</strong><span>Safe from these attendance penalties</span></p><p><strong>60% to below 75%</strong><span>Grade drop</span></p><p><strong>Below 60%</strong><span>Retake the course</span></p></div><p class="muted">Bunk allowances assume you attend all other remaining classes. Possible bunks are choices, not permission to skip every highlighted class.</p></section>
   </main>
   <footer><p>Made for your semester. Saved on this browser, on this address.</p><button id="reset-planner" class="quiet" type="button">Start over</button></footer>
