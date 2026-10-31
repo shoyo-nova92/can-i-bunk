@@ -84,6 +84,20 @@ test('zero held is valid with future meetings; no future and no history is rejec
   assert.throws(() => buildTimetableImport(meetings, inputs('0', '0'), {...options, endDate: options.cutoff}), /no held or future/);
 });
 
+test('midday cutoff keeps later classes today and excludes exactly counted start times', () => {
+  const midday = buildTimetableImport(meetings, inputs(), {...options, cutoffTime: '10:00'});
+  assert.equal(midday.sessions.length, 3);
+  assert.equal(midday.subjects[0].total, 11);
+  assert.deepEqual(midday.sessions.filter(session => session.date === options.cutoff).map(session => session.time), ['11:00']);
+  assert.equal(midday.subjects[0].historyThrough, options.cutoff);
+  assert.equal(midday.subjects[0].historyThroughTime, '10:00');
+  const exact = buildTimetableImport(meetings, inputs(), {...options, cutoffTime: '09:00'});
+  assert.equal(exact.sessions.filter(session => session.date === options.cutoff).length, 1);
+  const beforeAll = buildTimetableImport(meetings, inputs('0', '0'), {...options, cutoffTime: '08:59'});
+  assert.equal(beforeAll.sessions.length, 4);
+  assert.throws(() => buildTimetableImport(meetings, inputs(), {...options, cutoffTime: ['10:00']}), /valid counts-through time/);
+});
+
 test('rejects invalid dates, inconsistent counts, and duplicate weekly meetings', () => {
   assert.throws(() => buildTimetableImport(meetings, inputs(), {...options, cutoff: '2026-11-01'}), /today or earlier/);
   assert.throws(() => buildTimetableImport(meetings, inputs(), {...options, endDate: '2026-02-30'}), /end date/);

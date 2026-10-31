@@ -1,4 +1,4 @@
-import {createSubject, localDate, today, validDate} from './data.js';
+import {createSubject, today, validDate} from './data.js';
 import {generateSessions} from './setup.js';
 import {DAY_NAMES, parseTimetable} from './timetable-parser.js';
 
@@ -28,14 +28,18 @@ function button(text, action, className = 'secondary') {
 }
 
 const nameKey = name => name.trim().toLowerCase();
-const nextDate = value => {
-  const [year, month, day] = value.split('-').map(Number);
-  return localDate(new Date(year, month - 1, day + 1, 12));
+const currentTime = () => {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 };
+const validTime = value => typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+const sessionsAfter = (subject, cutoff, cutoffTime) => generateSessions(subject, cutoff)
+  .filter(session => session.date > cutoff || session.time > cutoffTime);
 
 /** Turn a reviewed weekly schedule into new records without changing saved state. */
-export function buildTimetableImport(rows, counts, {cutoff, endDate, existingSubjects = [], asOf = today()}) {
+export function buildTimetableImport(rows, counts, {cutoff, cutoffTime = '23:59', endDate, existingSubjects = [], asOf = today()}) {
   if (!validDate(cutoff) || cutoff > asOf) throw new Error('Counts-through date must be today or earlier.');
+  if (!validTime(cutoffTime)) throw new Error('Enter a valid counts-through time.');
   if (!validDate(endDate) || endDate < cutoff) throw new Error('Semester end date must be on or after the counts-through date.');
   if (!Array.isArray(rows) || !rows.length || rows.length > 500) throw new Error('Review between 1 and 500 weekly meetings.');
   const grouped = new Map();
@@ -53,10 +57,12 @@ export function buildTimetableImport(rows, counts, {cutoff, endDate, existingSub
     if (input?.attended === undefined || input?.held === undefined || !String(input.attended).trim() || !String(input.held).trim()) throw new Error(`Enter attended and held counts for ${subject.name}.`);
     const attended = Number(input.attended), held = Number(input.held);
     if (![attended, held].every(value => Number.isSafeInteger(value) && value >= 0) || attended > held) throw new Error(`${subject.name}: use whole numbers and keep attended no greater than held.`);
-    const remaining = generateSessions({id: 'estimate', ...subject, endDate}, nextDate(cutoff));
+    const remaining = sessionsAfter({id: 'estimate', ...subject, endDate}, cutoff, cutoffTime);
     const total = held + remaining.length;
     if (!total) throw new Error(`${subject.name} has no held or future sessions. Correct its timetable or end date.`);
     const validated = createSubject({...subject, total, attended, missed: held - attended, endDate});
+    validated.historyThrough = cutoff;
+    validated.historyThroughTime = cutoffTime;
     subjects.push(validated);
     sessions.push(...remaining.map(session => ({...session, subjectId: validated.id})));
   }
@@ -102,13 +108,15 @@ export function mountTimetable(root, store) {
 
   const form = node('form', undefined, 'timetable-counts-form');
   const dates = node('div', undefined, 'form-grid');
-  const cutoff = field(dates, 'Counts include every class through', 'date', today());
+  const cutoff = field(dates, 'Counts include classes through this date', 'date', today());
   cutoff.required = true;
   cutoff.max = today();
+  const cutoffTime = field(dates, 'Counts-through time', 'time', currentTime());
+  cutoffTime.required = true;
   const endDate = field(dates, 'Semester end date', 'date');
   endDate.required = true;
   form.append(dates);
-  form.append(node('p', 'Enter the counts separately for each subject. “Held” includes attended and missed classes through the selected date, including today. New calendar sessions start the following day, so today is not counted twice.', 'notice'));
+  form.append(node('p', 'Enter the counts separately for each subject. “Held” includes attended and missed classes through the selected date and time. Earlier meetings, including a class starting exactly at that time, are covered by those counts; later classes today stay in your calendar. Choose the cutoff before a class if it is not yet included in your counts.', 'notice'));
   form.append(node('p', 'Semester totals are estimated as held so far + all weekly meetings through the end date. Review holidays, cancellations, and postponements in the calendar before trusting bunk advice.', 'muted'));
   const countsRoot = node('div', undefined, 'timetable-counts');
   form.append(countsRoot);
@@ -172,9 +180,9 @@ export function mountTimetable(root, store) {
           estimate.textContent = 'Use whole numbers: held must be at least attended.'; return;
         }
         let suffix = '';
-        if (validDate(cutoff.value) && validDate(endDate.value) && endDate.value >= cutoff.value) {
+        if (validDate(cutoff.value) && validTime(cutoffTime.value) && validDate(endDate.value) && endDate.value >= cutoff.value) {
           try {
-            const remaining = generateSessions({id: 'estimate', weekly: subject.weekly, endDate: endDate.value}, nextDate(cutoff.value)).length;
+            const remaining = sessionsAfter({id: 'estimate', weekly: subject.weekly, endDate: endDate.value}, cutoff.value, cutoffTime.value).length;
             suffix = ` + ${remaining} scheduled remaining = ${heldCount + remaining} estimated semester sessions.`;
           } catch (error) { suffix = ` ${error.message}`; }
         }
@@ -212,7 +220,7 @@ export function mountTimetable(root, store) {
       refreshCounts();
     }, 'quiet');
     container.append(remove);
-    for (const input of [subject, day, time]) input.addEventListener('change', () => { confirmation.checked = false; refreshCounts(); });
+    for (const input of [subject, day, time]) input.addEventListener('input', () => { confirmation.checked = false; refreshCounts(); });
     rows.push(item);
     rowList.append(container);
     confirmation.checked = false;
@@ -266,15 +274,20 @@ export function mountTimetable(root, store) {
     if (event.dataTransfer.files.length !== 1) { report('Drop one timetable file at a time.', true); return; }
     readFile(event.dataTransfer.files[0]);
   });
-  cutoff.addEventListener('change', refreshCounts);
-  endDate.addEventListener('change', refreshCounts);
+  cutoff.addEventListener('input', () => {
+    cutoffTime.value = cutoff.value < today() ? '23:59' : currentTime();
+    confirmation.checked = false;
+    refreshCounts();
+  });
+  cutoffTime.addEventListener('input', () => { confirmation.checked = false; refreshCounts(); });
+  endDate.addEventListener('input', () => { confirmation.checked = false; refreshCounts(); });
   form.addEventListener('submit', event => {
     event.preventDefault();
     if (busy) return;
     try {
       if (!confirmation.checked) throw new Error('Confirm that you reviewed the timetable and counts first.');
       saveCountDrafts();
-      const {subjects: newSubjects, sessions: newSessions} = buildTimetableImport(readRows(), counts, {cutoff: cutoff.value, endDate: endDate.value, existingSubjects: store.get().subjects});
+      const {subjects: newSubjects, sessions: newSessions} = buildTimetableImport(readRows(), counts, {cutoff: cutoff.value, cutoffTime: cutoffTime.value, endDate: endDate.value, existingSubjects: store.get().subjects});
       store.update(state => {
         // Check again inside the atomic update in case another UI changed the store.
         const existingNames = new Set(state.subjects.map(subject => nameKey(subject.name)));
