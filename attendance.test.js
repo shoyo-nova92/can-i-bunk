@@ -1,0 +1,13 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createSubject,createSession} from './data.js';
+import {analyze,classify,previewBunk} from './attendance.js';
+function fixture({total=40,attended=20,missed=9}={}) { const subject=createSubject({name:'Math',total,attended,missed,endDate:'2030-12-31'});return {version:1,subjects:[subject],sessions:Array.from({length:total-attended-missed},(_,i)=>createSession(subject.id,`2030-12-${String(i+1).padStart(2,'0')}`,'09:00'))}; }
+const calc=s=>analyze(s,s.subjects[0].id,'2030-01-01');
+test('exact thresholds and session ceilings',()=>{assert.equal(classify(30,40),'safe');assert.equal(classify(24,40),'grade-drop');assert.equal(classify(23,40),'retake');assert.equal(classify(74,99),'grade-drop');const r=calc(fixture({total:7,attended:0,missed:0}));assert.equal(r.required75,6);assert.equal(r.required60,5);});
+test('40-session example: one choice consumes allowance, preview leaves input intact',()=>{const s=fixture();assert.equal(calc(s).allowance,1);const p=previewBunk(s,s.sessions[0].id,'2030-01-01');assert.equal(p.after.allowance,0);assert.equal(p.mandatoryIds.length,10);assert.equal(calc(s).B,0);s.sessions[0].plan='bunk';assert.equal(calc(s).allowance,0);s.sessions[1].plan='bunk';assert.equal(calc(s).deficit,1);s.sessions[0].plan='undecided';assert.equal(calc(s).allowance,0);});
+test('irrecoverable 75% still distinguishes avoiding retake',()=>{const r=calc(fixture({missed:11}));assert.equal(r.maximumPercent,72.5);assert.equal(r.canRecover75,false);assert.equal(r.canRecover60,true);});
+test('zero history has no current percentage',()=>assert.equal(calc(fixture({total:4,attended:0,missed:0})).currentPercent,null));
+test('actual marks are counted once and undo restores remaining',()=>{const s=fixture();s.sessions[0].actual='missed';s.sessions[0].plan='bunk';assert.equal(calc(s).B,0);assert.equal(calc(s).M,10);assert.equal(calc(s).R,10);s.sessions[0].actual='unmarked';assert.equal(calc(s).B,1);});
+test('mismatches, cancellations and unresolved past sessions qualify forecasts',()=>{const s=fixture();s.sessions[0].cancelled=true;assert.equal(calc(s).mismatch,true);assert.equal(calc(s).outcome,null);s.sessions[0].cancelled=false;s.sessions[0].date='2029-01-01';assert.equal(calc(s).unresolved.length,1);assert.equal(calc(s).reliable,false);});
+test('subjects are independent and postponing preserves totals',()=>{const s=fixture(),other=fixture({total:4,attended:0,missed:0});s.subjects.push(...other.subjects);s.sessions.push(...other.sessions);const before=calc(s);s.sessions[0].date='2030-11-01';assert.equal(calc(s).allowance,before.allowance);assert.equal(analyze(s,other.subjects[0].id,'2030-01-01').allowance,1);});

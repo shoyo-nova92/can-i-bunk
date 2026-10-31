@@ -1,0 +1,9 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createSubject,createSession,createStore,emptyState,validateState,markAttendance,today,validDate} from './data.js';
+const subject=()=>createSubject({name:'Math',total:40,attended:20,missed:9,endDate:'2027-12-31'});
+test('validates whole counts and historical limits',()=>{ for(const value of [-1,1.5,0]) assert.throws(()=>createSubject({name:'X',total:value,endDate:'2027-01-01'})); assert.throws(()=>createSubject({...subject(),total:1})); assert.equal(validDate('2027-02-30'),false); });
+test('rejects duplicate IDs and duplicate sessions',()=>{const s=subject(),a=createSession(s.id,today(),'09:00'); assert.throws(()=>validateState({version:1,subjects:[s,s],sessions:[]})); assert.throws(()=>validateState({version:1,subjects:[s],sessions:[a,{...a,id:'other'}]}));});
+test('store rolls back invalid updates and notifies only valid changes',()=>{const store=createStore();let events=0;store.subscribe(()=>events++);assert.throws(()=>store.update(s=>s.version=2));assert.equal(events,0);store.update(s=>s.subjects.push(subject()));assert.equal(events,1);const copy=store.get();copy.subjects=[];assert.equal(store.get().subjects.length,1);});
+test('actual marks can be undone without changing future plans',()=>{const s=subject(),a=createSession(s.id,today(),'09:00');a.plan='bunk';const store=createStore({version:1,subjects:[s],sessions:[a]});markAttendance(store,a.id,'attended');assert.equal(store.get().sessions[0].plan,'bunk');markAttendance(store,a.id,'unmarked');assert.equal(store.get().sessions[0].actual,'unmarked');});
+test('empty state is valid and unknown versions are rejected',()=>{assert.equal(validateState(emptyState()).version,1);assert.throws(()=>validateState({version:99,subjects:[],sessions:[]}));});
