@@ -9,6 +9,8 @@ This Express API stores accounts and per-account planners in MongoDB through Mon
 3. In Atlas, create a database user with read/write access to this application's database and add your laptop's current public IP to Network Access.
 4. Run `npm start`, then open `http://127.0.0.1:3000`. Startup waits for MongoDB and its unique indexes before listening. `/api/health` reports connection readiness.
 
+On the current laptop, Atlas connections using Node's default TLS negotiation returned alert 80, while explicit TLS 1.2 connected successfully. For this compatibility case, run `npm run start:atlas` from this directory. It starts the same server with `node --tls-max-v1.2 src/index.js`; certificate and hostname validation remain enabled. The default `npm start` command is unchanged. This is an explicit compatibility command, with no automatic retry or certificate-validation bypass.
+
 Passwords use bcrypt with a cost of 12. Passwords require at least 10 characters and at most 72 UTF-8 bytes. Access tokens expire after two hours and are checked for issuer, audience, algorithm and account existence. Every planner query is scoped to the authenticated account. Revision checks use one atomic MongoDB update and return HTTP 409 for stale saves.
 
 ## Local demonstration and tests

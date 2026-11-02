@@ -1,1 +1,26 @@
-{"name":"can-i-bunk","private":true,"type":"module","engines":{"node":">=22"},"scripts":{"start":"npm --prefix server start","demo:local":"npm --prefix server run demo:local","test":"node --test *.test.js","test:api":"npm --prefix server test","test:all":"npm test && npm run test:api","test:postman":"newman run postman/Can-I-Bunk.postman_collection.json -e postman/Local.postman_environment.json","prepare:vendor":"node prepare-vendor.mjs"},"dependencies":{"pdfjs-dist":"6.4.299","tesseract.js":"7.0.0","xlsx":"https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"},"devDependencies":{"newman":"^6.2.3"}}
+{
+  "name": "can-i-bunk",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "npm --prefix server start",
+    "demo:local": "npm --prefix server run demo:local",
+    "test": "node --test *.test.js",
+    "test:api": "npm --prefix server test",
+    "test:all": "npm test && npm run test:api",
+    "test:postman": "newman run postman/Can-I-Bunk.postman_collection.json -e postman/Local.postman_environment.json",
+    "prepare:vendor": "node prepare-vendor.mjs",
+    "start:atlas": "npm --prefix server run start:atlas"
+  },
+  "dependencies": {
+    "pdfjs-dist": "6.4.299",
+    "tesseract.js": "7.0.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "devDependencies": {
+    "newman": "^6.2.3"
+  }
+}
