@@ -2,6 +2,8 @@
 
 Import `Can-I-Bunk.postman_collection.json` and `Local.postman_environment.json` into **Postman Desktop**. Select the Can I Bunk Local environment. Start the app with `npm run demo:local` (or `npm start` after Atlas setup), then run the collection in its listed order, once.
 
+In Postman12, Ctrl+O opens Use Resources / Import. You can paste each JSON file's contents into the import field. Select the collection, choose Run, keep Functional / Local /1iteration, turn off Keep variable values, and start the run. The verified desktop run on2026-11-02 passed all37 assertions with0 failures/errors. The imported collection/environment and completed run are available in the user's Postman workspace.
+
 The collection uses `baseUrl=http://127.0.0.1:3000`. Its first request generates synthetic email addresses, password and subject/session IDs. Registration/login capture bearer tokens; successful writes advance `revision`. Requests cover auth, both resource CRUD flows, full planner saves, invalid counts, unauthenticated requests, stale writes, two-account isolation and deletion. Final requests remove synthetic attendance records; the two synthetic user accounts remain in the demo/test database. Use a disposable database for repeated evaluation runs.
 
 Never export populated runtime variables or a real password/token. Checked-in assets contain no credentials. No raw timetable document is uploaded.

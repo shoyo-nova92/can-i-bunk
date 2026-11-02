@@ -55,6 +55,6 @@ Pinned browser assets remain checked into `vendor/`. To recreate them, run `npm 
 
 Libraries: [PDF.js](https://mozilla.github.io/pdf.js/), [SheetJS CE](https://docs.sheetjs.com/docs/getting-started/installation/standalone/), and [Tesseract.js](https://github.com/naptha/tesseract.js). Versions are pinned in package-lock.json and licenses accompany vendor assets. Browser libraries were explicitly approved after the original no-library plan.
 
-Current project details: [API contract](API_CONTRACT.md), [scope](WHAT.md), [implementation stages](HOWEXACTLY.md), [demo](DEMO.md). Historical context: plan.md, spec.md, interfaces.md and UPDATE_REPORT.md describe the earlier static app.
+Current project details: [API contract](API_CONTRACT.md), [scope](WHAT.md), [implementation stages](HOWEXACTLY.md), [demo](DEMO.md), [QA and security verification](FULLSTACK_REPORT.md). Historical context: plan.md, spec.md, interfaces.md and UPDATE_REPORT.md describe the earlier static app.
 
 The teacher requested a **separate public GitHub repository**. This work extends the existing repository selected by the user; teacher approval for that substitution and public visibility must be resolved before submission. Atlas verification remains pending the user's connection string.
