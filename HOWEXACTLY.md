@@ -1,0 +1,10 @@
+# Implementation and evaluation sequence
+
+1. Baseline: read README.md, BUILD_REPORT.md, UPDATE_REPORT.md, UPDATE_CONTRACT.md, interfaces.md and the existing modules. Original baseline is 58 passing Node tests. Preserve browser-local persistence and exact attendance thresholds.
+2. Contract: API_CONTRACT.md fixes request/response shapes before parallel builder work. The MongoDB planner aggregate stores owner, revision and the existing state. Atomic owner/revision writes preserve cross-record consistency without a multi-document transaction.
+3. Backend: backend_builder owns server/. Implement authentication, User and Planner Mongoose models, route/controller separation, allowlisted input validation, revision compare-and-swap, subject/session CRUD and real MongoDB integration tests. Serve only public frontend assets.
+4. Frontend: frontend_integrator owns frontend files. Integrate account controls and API saves with visible local/account modes; keep tokens in memory and local attendance independent. Retain data on failures and offer backups and conflict recovery.
+5. Evaluation: lead supplies Postman collection/environment, startup scripts and demo instructions. Fresh read-only QA and security agents test the combined result; builders resolve findings and reviewers rerun relevant checks.
+6. Atlas: user fills server/.env locally. Use MongoDB Atlas connection string with its database name, database user and network access configured. Never commit real URI/secret. Verify health, auth and persistent CRUD against Atlas before marking that requirement complete.
+7. Demonstration: follow DEMO.md for Postman Desktop and the running laptop UI. Explain model/controller/route flow, password hashing, owner filters, validation and stale-write protection. Use explicitly labeled synthetic data, never real attendance as test fixtures.
+8. Submission: reconcile the teacher's separate/public repository rule with the user's selected existing repository. Provide the final public URL only after visibility and approval are established.

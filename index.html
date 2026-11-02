@@ -20,7 +20,31 @@
       <div><h1 id="page-title">A day off.<br>A semester in balance.</h1><p>See what you can miss, what you need to attend, and how today's choice changes tomorrow.</p></div>
       <div class="rule-note"><strong>75% is the line.</strong><p>Drop your PDF, Excel file, or timetable image. Review the classes, then enter attended and held counts.</p><a class="button-link" href="#timetable">Import your timetable</a></div>
     </section>
-    <div class="save-bar"><p id="save-status" role="status" aria-live="polite">Opening your planner…</p><span>Private to this browser</span></div>
+    <details class="account-section" id="account"><summary>Account &amp; backups</summary>
+      <p id="account-identity">Use an account to save your planner to the database.</p>
+      <p class="muted">Your local browser planner and account planner are separate. Sign in to open account records; uploading local records is a separate choice. Account changes save when you click Save to account. Reloading signs you out.</p>
+      <form id="account-form">
+        <div class="form-grid">
+          <label class="field"><span>Name (for a new account)</span><input name="name" autocomplete="name" maxlength="80"></label>
+          <label class="field"><span>Email</span><input name="email" type="email" autocomplete="username" maxlength="254" required></label>
+          <label class="field"><span>Password</span><input name="password" type="password" autocomplete="current-password" maxlength="128" required></label>
+        </div>
+        <p class="muted">New account passwords need at least 10 characters (up to 72 UTF-8 bytes). Use a unique password.</p>
+        <div class="actions"><button type="submit" name="action" value="login">Sign in &amp; open account</button><button type="submit" name="action" value="register" class="secondary">Create account</button></div>
+      </form>
+      <div id="account-actions" class="actions" hidden>
+        <button type="button" id="cloud-save">Save to account</button>
+        <button type="button" id="cloud-reload" class="secondary">Load latest account records</button>
+        <button type="button" id="cloud-open" class="secondary">Open account planner</button>
+        <button type="button" id="local-open" class="secondary">Open local planner</button>
+        <button type="button" id="local-upload" class="secondary">Copy local planner to account draft</button>
+        <button type="button" id="download-account" class="secondary">Download account draft JSON</button>
+        <button type="button" id="account-signout" class="quiet">Sign out</button>
+      </div>
+      <div class="actions account-backups"><button type="button" id="download-local" class="quiet">Download local planner JSON</button></div>
+      <p id="account-message" class="muted" role="status" aria-live="polite">Local mode works without an account. Imported files are processed in your browser; saving to an account sends only reviewed planner records.</p>
+    </details>
+    <div class="save-bar"><p id="save-status" role="status" aria-live="polite">Opening your planner…</p><span id="planner-location">Local browser planner</span></div>
     <section id="recovery" class="recovery" aria-label="Saved data recovery" hidden><p id="recovery-message" role="alert"></p><p>Saving is paused so the original stored data stays untouched. You can continue without saving or explicitly replace it with a fresh planner.</p><button id="start-fresh" type="button">Replace saved data and start fresh</button></section>
     <p id="view-error" class="error" role="alert" hidden></p>
     <section id="storage-conflict" class="recovery" aria-label="Newer saved records" hidden><p>Another tab changed your saved planner. Saving is paused here so you cannot overwrite its newer attendance.</p><button id="reload-planner" type="button">Reload newer planner</button></section>
@@ -33,7 +57,7 @@
     <details class="setup-section" aria-label="Manage your subjects"><summary>Advanced corrections: subjects and individual classes</summary><div id="setup" tabindex="-1"></div></details>
     <section class="rules" aria-label="Attendance thresholds"><h2>Know the thresholds</h2><div class="rule-list"><p><strong>75% and above</strong><span>Safe from these attendance penalties</span></p><p><strong>60% to below 75%</strong><span>Grade drop</span></p><p><strong>Below 60%</strong><span>Retake the course</span></p></div><p class="muted">Bunk allowances assume you attend all other remaining classes. Possible bunks are choices, not permission to skip every highlighted class.</p></section>
   </main>
-  <footer><p>Made for your semester. Saved on this browser, on this address.</p><button id="reset-planner" class="quiet" type="button">Start over</button></footer>
+  <footer><p>Made for your semester. <span id="footer-location">Saved in this browser, on this address.</span></p><button id="reset-planner" class="quiet" type="button">Start over</button></footer>
   <noscript><p class="error">Enable JavaScript to use the attendance planner. Your data stays in this browser.</p></noscript>
 </body>
 </html>

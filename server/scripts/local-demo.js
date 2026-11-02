@@ -1,0 +1,14 @@
+import {MongoMemoryServer} from 'mongodb-memory-server';
+import {randomBytes} from 'node:crypto';
+import {mkdir} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import {createApp} from '../src/app.js';
+import {connectDatabase,disconnectDatabase} from '../src/database.js';
+const dbPath=fileURLToPath(new URL('../.demo-data',import.meta.url));
+await mkdir(dbPath,{recursive:true});
+const mongo=await MongoMemoryServer.create({instance:{dbPath,storageEngine:'wiredTiger'}});
+await connectDatabase(mongo.getUri('can_i_bunk_demo'));
+const port=Number(process.env.PORT??3000);
+const server=createApp({jwtSecret:randomBytes(48).toString('hex')}).listen(port,'127.0.0.1',()=>console.log(`LOCAL MONGODB DEMO (not Atlas): http://127.0.0.1:${port}. Data retained in ignored server/.demo-data; sign in again after restart.`));
+const stop=()=>server.close(async()=>{await disconnectDatabase();await mongo.stop({doCleanup:false});process.exit(0);});
+process.once('SIGINT',stop);process.once('SIGTERM',stop);

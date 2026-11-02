@@ -1,12 +1,30 @@
 # Can I bunk my classes?
 
-A static semester attendance planner with a calendar, future bunk reservations, and explainable calculations. Import your timetable instead of typing every subject.
+A semester attendance planner with a calendar, future bunk reservations, explainable calculations, and a Node.js/Express/Mongoose backend. Import your timetable instead of typing every subject. Browser-local and authenticated account planners are separate.
 
-## Open locally
+## Run the full-stack prototype
+
+Use Node.js 22 or newer. From this folder:
+
+```powershell
+npm ci
+npm --prefix server ci
+npm run demo:local
+```
+
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000). This explicit demo command launches a **real local MongoDB process**, downloads its binary on first use, and keeps demo data in ignored `server/.demo-data/`. It does not use Atlas. Sign in again after a restart. Leave the terminal running; Ctrl+C stops it.
+
+For the assignment's Atlas connection, copy `server/.env.example` to `server/.env` if absent, replace `MONGODB_URI` with your Atlas URI and database name, generate a random `JWT_SECRET` of at least 32 characters, then run `npm start`. A local `.env` placeholder has been prepared on this laptop; it is deliberately excluded from Git. See [server setup](server/README.md) and [evaluation walkthrough](DEMO.md). No credentials belong in GitHub or Postman exports.
+
+Open **Account & backups** to register/sign in. Login opens the account planner without uploading local data. **Open local planner** and **Open account planner** switch between independent records. **Copy local planner to account draft** prepares an explicit replacement; **Save to account** confirms the write. Account edits use manual saves, while local edits autosave. Unsaved cloud edits remain in the tab if a save fails; download the account draft before discarding/reloading. A stale revision blocks saving until the latest state is loaded. Tokens stay in memory, so page reload requires login again.
+
+Browser records belong to their exact origin (host and port). Starting this server does not migrate attendance from an older `:4173` address; keep that old page/address available and download a backup there. Account JSON downloads are backups; automatic restore/merging is outside this prototype.
+
+## Open in browser-local mode
 
 From this folder, run `python -m http.server 4173 --bind 127.0.0.1`, then open [http://127.0.0.1:4173](http://127.0.0.1:4173). Use a recent browser with JavaScript and WebAssembly enabled. JavaScript modules require HTTP; opening index.html directly is unsupported.
 
-The server serves static files only. There is no application backend, account, API key, document-upload service, or cross-device sync. Records are saved in localStorage for the current browser and address. English OCR runs in a local browser worker. Imported files and extracted text are not saved or uploaded; only reviewed subject/session records are stored.
+This optional Python server serves static files only; account APIs require the Node server above. Local records use localStorage for the current browser and address. English OCR runs in a local browser worker. Imported files and extracted text are not saved or uploaded. Only reviewed subject/session records are sent when you explicitly save an account planner.
 
 ## Import workflow
 
@@ -31,8 +49,12 @@ Classes beyond semester end are rejected. Unmarked past sessions and unreconcile
 
 ## Development
 
-Run `npm test` with Node.js: tests use its built-in runner. `node_modules` is unnecessary to serve the app because pinned browser assets are checked into `vendor/`. To recreate them, run `npm ci --ignore-scripts --omit=optional`, then `npm run prepare:vendor` (requires an internet connection for the pinned English OCR model).
+Run `npm test` for frontend tests and `npm run test:api` for real MongoDB integration tests, or `npm run test:all` for both. With the demo running, `npm run test:postman` executes the importable collection using Newman. See [Postman instructions](postman/README.md) for Postman Desktop. Tests use synthetic accounts; avoid running the collection against your real attendance account.
+
+Pinned browser assets remain checked into `vendor/`. To recreate them, run `npm ci --ignore-scripts --omit=optional`, then `npm run prepare:vendor` (requires an internet connection for the pinned English OCR model).
 
 Libraries: [PDF.js](https://mozilla.github.io/pdf.js/), [SheetJS CE](https://docs.sheetjs.com/docs/getting-started/installation/standalone/), and [Tesseract.js](https://github.com/naptha/tesseract.js). Versions are pinned in package-lock.json and licenses accompany vendor assets. Browser libraries were explicitly approved after the original no-library plan.
 
-Project details: plan.md (requirements), spec.md (original task split), interfaces.md (module contracts), UPDATE_REPORT.md (review fixes and import verification).
+Current project details: [API contract](API_CONTRACT.md), [scope](WHAT.md), [implementation stages](HOWEXACTLY.md), [demo](DEMO.md). Historical context: plan.md, spec.md, interfaces.md and UPDATE_REPORT.md describe the earlier static app.
+
+The teacher requested a **separate public GitHub repository**. This work extends the existing repository selected by the user; teacher approval for that substitution and public visibility must be resolved before submission. Atlas verification remains pending the user's connection string.

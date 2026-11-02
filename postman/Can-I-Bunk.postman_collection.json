@@ -1,0 +1,997 @@
+{
+  "info": {
+    "name": "Can I Bunk — Assignment API verification",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Run in order against a disposable local/demo or Atlas test database. Creates two uniquely named synthetic accounts per run (no account-delete API); subject/session data is removed at the end. Never run with real student data. Tests auth, CRUD, stale revisions and cross-account isolation. Tokens/passwords are runtime values, not exported secrets."
+  },
+  "variable": [
+    {
+      "key": "revision",
+      "value": "0"
+    },
+    {
+      "key": "subjectId",
+      "value": "demo-subject"
+    },
+    {
+      "key": "sessionId",
+      "value": "demo-session"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.info.requestName === '01 Health') {",
+          "  const run = pm.variables.replaceIn('{{$guid}}');",
+          "  pm.collectionVariables.set('email', 'postman-' + run + '@example.test');",
+          "  pm.collectionVariables.set('otherEmail', 'other-' + run + '@example.test');",
+          "  pm.collectionVariables.set('password', 'Demo-' + pm.variables.replaceIn('{{$guid}}') + '!');",
+          "  pm.collectionVariables.set('subjectId', 'subject-' + run);",
+          "  pm.collectionVariables.set('sessionId', 'session-' + run);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Health",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);",
+              "pm.test('MongoDB connected', () => pm.expect(pm.response.json().database).to.eql('connected'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": "{{baseUrl}}/api/health"
+      }
+    },
+    {
+      "name": "02 Registration",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);",
+              "pm.collectionVariables.set('token', pm.response.json().token);",
+              "pm.test('User has no password hash', () => pm.expect(pm.response.json().user).not.to.have.property('passwordHash'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": "{{baseUrl}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman Student\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "03 Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);",
+              "pm.collectionVariables.set('token', pm.response.json().token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": "{{baseUrl}}/api/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "04 Current user",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);",
+              "pm.test('Correct account', () => pm.expect(pm.response.json().user.email).to.eql(pm.collectionVariables.get('email')));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/auth/me"
+      }
+    },
+    {
+      "name": "05 Empty planner",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);",
+              "pm.test('Starts empty', () => pm.expect(pm.response.json().state.subjects).to.have.lengthOf(0));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/state"
+      }
+    },
+    {
+      "name": "06 Create subject",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/subjects",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"subject\":{\"id\":\"{{subjectId}}\",\"name\":\"Postman Mathematics\",\"total\":40,\"attended\":20,\"missed\":9,\"endDate\":\"2099-12-31\",\"weekly\":[]},\"revision\":{{revision}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "07 List subjects",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);",
+              "pm.test('Created subject listed', () => pm.expect(pm.response.json().subjects[0].name).to.eql('Postman Mathematics'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/subjects"
+      }
+    },
+    {
+      "name": "08 Read subject",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/subjects/{{subjectId}}"
+      }
+    },
+    {
+      "name": "09 Update subject",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);",
+              "pm.test('Subject updated', () => pm.expect(pm.response.json().state.subjects[0].name).to.eql('Updated Mathematics'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/subjects/{{subjectId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"changes\":{\"name\":\"Updated Mathematics\"},\"revision\":{{revision}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "10 Create session",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/sessions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"session\":{\"id\":\"{{sessionId}}\",\"subjectId\":\"{{subjectId}}\",\"date\":\"2099-01-05\",\"time\":\"09:00\",\"actual\":\"unmarked\",\"plan\":\"undecided\",\"cancelled\":false},\"revision\":{{revision}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "11 List sessions",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);",
+              "pm.test('Created session listed', () => pm.expect(pm.response.json().sessions).to.have.lengthOf(1));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/sessions"
+      }
+    },
+    {
+      "name": "12 Read session",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/sessions/{{sessionId}}"
+      }
+    },
+    {
+      "name": "13 Update session",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);",
+              "pm.test('Plan updated', () => pm.expect(pm.response.json().state.sessions[0].plan).to.eql('bunk'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/sessions/{{sessionId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"changes\":{\"plan\":\"bunk\"},\"revision\":{{revision}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "14 Reject stale write",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/subjects/{{subjectId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"changes\": {\n    \"name\": \"Stale\"\n  },\n  \"revision\": 0\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "15 Reject invalid counts",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/subjects/{{subjectId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"changes\":{\"attended\":999},\"revision\":{{revision}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "16 Reject missing authentication",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": "{{baseUrl}}/api/state"
+      }
+    },
+    {
+      "name": "17 Second account",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);",
+              "pm.collectionVariables.set('otherToken', pm.response.json().token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": "{{baseUrl}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Other Student\",\n  \"email\": \"{{otherEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "18 Other account cannot read subject",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{otherToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/subjects/{{subjectId}}"
+      }
+    },
+    {
+      "name": "19 Other account cannot edit subject",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{otherToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/subjects/{{subjectId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"changes\": {\n    \"name\": \"Unauthorized\"\n  },\n  \"revision\": 0\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "20 Other account cannot delete session",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{otherToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/sessions/{{sessionId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"revision\": 0\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "21 Read full state",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);",
+              "pm.collectionVariables.set('snapshot', JSON.stringify(pm.response.json().state));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/state"
+      }
+    },
+    {
+      "name": "22 Save full state",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/state",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"state\":{{snapshot}},\"revision\":{{revision}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "23 Delete session",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);",
+              "pm.test('Session deleted', () => pm.expect(pm.response.json().state.sessions).to.have.lengthOf(0));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/sessions/{{sessionId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"revision\":{{revision}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "24 Delete subject",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);",
+              "pm.test('Subject deleted', () => pm.expect(pm.response.json().state.subjects).to.have.lengthOf(0));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/subjects/{{subjectId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"revision\":{{revision}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "25 Deleted subject is missing",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/subjects/{{subjectId}}"
+      }
+    },
+    {
+      "name": "26 Final planner",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "if (pm.response.code < 300 && Number.isInteger(pm.response.json().revision)) pm.collectionVariables.set('revision', pm.response.json().revision);",
+              "pm.test('Synthetic planner cleaned', () => { pm.expect(pm.response.json().state.subjects).to.have.lengthOf(0); pm.expect(pm.response.json().state.sessions).to.have.lengthOf(0); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/state"
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "can-i-bunk-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=22"},
+  "scripts": {"start": "node src/index.js", "dev": "node --watch src/index.js", "demo:local": "node scripts/local-demo.js", "test": "node --test --test-concurrency=1 test/*.test.js"},
+  "dependencies": {"bcryptjs": "^3.0.2", "dotenv": "^17.2.3", "express": "^5.1.0", "express-rate-limit": "^8.2.1", "helmet": "^8.1.0", "jsonwebtoken": "^9.0.2", "mongoose": "^8.19.3"},
+  "devDependencies": {"mongodb-memory-server": "^10.3.0", "supertest": "^7.1.4"}
+}

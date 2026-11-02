@@ -1,3 +1,9 @@
 node_modules/
 tmp/
 *.log
+.env
+.env.*
+!.env.example
+.demo-db/
+test-results/
+playwright-report/
